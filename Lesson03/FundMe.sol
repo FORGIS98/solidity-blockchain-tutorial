@@ -3,11 +3,16 @@ pragma solidity >=0.4.0 <0.9.0;
 
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
+// import "@chainlink/contracts/src/v0.6/vendor/SafeMathChainlink.sol"; // Solidity v6
+
 contract FundMe {
+    // using SafeMathChainlink for uint256;
+
     mapping(address => uint256) public addressToAmountFunded;
+    address[] public funders;
 
     AggregatorV3Interface internal priceFeed;
-    address owner;
+    address public owner;
 
     constructor() {
         priceFeed = AggregatorV3Interface(
@@ -15,6 +20,11 @@ contract FundMe {
         );
 
         owner = msg.sender;
+    }
+
+    modifier onlyOnwer() {
+        require(msg.sender == owner, "Only owner can call this method!");
+        _;
     }
 
     function fund() public payable {
@@ -26,6 +36,7 @@ contract FundMe {
         );
 
         addressToAmountFunded[msg.sender] += msg.value;
+        funders.push(msg.sender);
     }
 
     function getVersion() public view returns (uint256) {
@@ -52,8 +63,13 @@ contract FundMe {
         return ethAmountInUSD;
     }
 
-    function withdraw() public payable {
-        require(msg.sender == owner);
-        msg.sender.transfer(address(this).balance);
+    function withdraw() public payable onlyOnwer {
+        payable(msg.sender).transfer(address(this).balance);
+
+        for (uint256 i = 0; i < funders.length; i++) {
+            addressToAmountFunded[funders[i]] = 0;
+        }
+
+        funders = new address[](0);
     }
 }
